@@ -1,0 +1,30 @@
+% 圆筒受内压的截断抽样方法可靠性分析程序
+clear, clc;
+mu_    = [460, 20, 19, 392];
+sigma_d= [7, 2.4, 0.8,31.4];
+sigma_ = diag(sigma_d.^2);
+
+g = @(x) x(:,4) - x(:,1).*x(:,2)./(2 * x(:,3));
+
+% 可以使用如下封装函数直接验证:
+[Pf, Pf_mu, Pf_sigma] = MCS_solu(mu_, sigma_, g, 1e7); 
+
+
+
+% g_arr = {g}; [Pf2, Pf_mu2, Pf_sigma2] = IMS_solu(mu_, sigma_,g_arr, 3000);
+
+% 首先使用AFOSM方法求解设计点和失效半径beta值
+[x_i, beta_, ~] = AFOSM_solu(mu_, sigma_, g);
+
+num_TCS = 2e6;
+xp = lhsnorm(mu_, sigma_,num_TCS,"on");
+%% %%%%%%%%%%%%% 截断抽样部分 %%%%%%%%%%%%%%%%%%%%%%%% 
+r2 = sum(((xp - mu_)./sigma_d).^2, 2);   % 标准化变量, 求解距离平方
+xp(r2 < beta_^2,:) =[];                   % 标准化之后, 去除距离在失效球以内的点
+
+fail_points = find(g(xp) < 0);      % 使得需要计算g的xp变少;
+fail_xp     = xp(fail_points,:);
+
+Pf = size(fail_points, 1)/num_TCS;  % 实际并未改变失效概率;
+
+%%%%%%%%%%% 其余公式的计算直接参考 4.2.1 -4.2.5即可 %%

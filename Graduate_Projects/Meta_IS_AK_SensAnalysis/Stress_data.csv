@@ -1,0 +1,10 @@
+﻿# 
+# 05/09/2024 09:17:19
+# The parameters defined in the project are:
+# ,P1 - P3@DS_FLAP_HEIGHT,P2 - P3@DS_LO_RIB_WIDTH1,P3 - P3@DS_LO_RIB_WIDTH2,P4 - P3@DS_LO_RIB_WIDTH3,P5 - P3@DS_LA_RIB_WIDTH1,P7 - Equivalent Stress Maximum [Pa],P8 - Equivalent Elastic Strain Maximum [m m^-1]
+# 
+# The following header line defines the name of the columns by reference to the parameters.
+Name,P1,P2,P3,P4,P5,P7,P8
+DP 0,2,2,2,2,2,270610801.20322716,0.0038158783572725952
+DP 1,2.4101,3.0684,2.5026,1.6006,2.424,212957796.80332771,0.0030029085173737258
+DP 2,3.2635,3.9502,3.274,2.1087,2.7545,130712045.03181246,0.0018416449117163818

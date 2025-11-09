@@ -1,0 +1,12 @@
+{
+    "_schemaVersion": "1.0.0",
+    "buncher_sample":
+    {
+        "inputs":
+        [
+            {"name":"mu", "kind":"required", "type":["vector"], "purpose":"均值"},
+            {"name":"sigma_d", "kind":"required", "type":["vector"], "purpose":"协方差向量"},
+            {"name":"f", "kind":"namevalue", "type":["numeric"],"purpose":"插值系数f"}
+        ]
+    }
+}

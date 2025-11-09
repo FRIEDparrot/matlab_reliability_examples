@@ -1,0 +1,100 @@
+%% %%%%%%%%%%%%%%%% 多失效模式下的可靠性的线抽样方法 %%%%%%%%%%%%%%%%%%%% 
+clear, clc;
+mu_ = [0, 0];
+sigma_d = [1, 1];
+sigma_ = diag(sigma_d.^2);
+
+g1 = @(x) 10.* x(:,1).^2 - 8.* x(:,2) + 36;
+g2 = @(x) - 10.* x(:,1) + x(:,2).^2 + 32;
+% [Pf, Pf_mu, Pf_sigma, msc] = MCS_solu(mu_, sigma_, g, 1e7);
+
+%% %%%%%%%%%%%%%%%% LS solution %%%%%%%%%%%%%%%%%%%% 
+num_LS = 3e4; n = size(mu_, 2);
+[x_i1,~,~] = AFOSM_solu(mu_, sigma_, g1);
+[x_i2,~,~] = AFOSM_solu(mu_, sigma_, g2);
+
+%求解主要方向向量
+x_i1 = (x_i1 - mu_) ./ sigma_d; x_i2 = (x_i2 - mu_) ./ sigma_d;
+alpha_1 = x_i1 ./ sqrt(sum(x_i1.^2)); alpha_2 = x_i2 ./ sqrt(sum(x_i2.^2));
+
+coef_interp = [0.3, 0.7, 1];   % the interpolation coefficient
+m = size(coef_interp, 2);
+
+% 抽样和失效概率计算
+xp1 = lhsnorm(mu_, sigma_, num_LS);   
+xp1_tau = xp1 - sum(xp1.* alpha_1, 2) .* alpha_1;
+xp1_r = xp1 - xp1_tau;
+coef_alpha1 = sqrt(sum(xp1_r.^2, 2)) .* sign(sum(xp1_r .* alpha_1, 2)); % 使用模 * 方向的方法, 保证不出现NaN错误
+
+cj1_res = zeros(num_LS, 1);
+xj1_res = zeros(num_LS, n);
+for i = 1:num_LS
+	yp_interp1 = zeros(1, m); cj_interp = coef_alpha1(i,:).* coef_interp;
+	for j = 1:m
+		xp_temp = xp1_tau(i,:) +  cj_interp(j) .* alpha_1;
+		yp_interp1(j) = g1(xp_temp);
+	end
+	p = polyfit(yp_interp1, cj_interp, 2);
+	cj1_res(i) = p(3);
+	%%%%%*** 注意求解的是 xj1_res的距离， 不是样本点和两个部分的距离 %%%%%%%%%%%%%%%
+    xj1_res(i,:) = cj1_res(i) .* alpha_1 + xp1_tau(i,:);
+	r1 = len(xj1_res(i,:) - sum(xj1_res(i,:) .* alpha_1, 2).* alpha_1);
+	r2 = len(xj1_res(i,:) - sum(xj1_res(i,:) .* alpha_2, 2).* alpha_2);
+	
+	clear xp_temp p cj_interp
+	% 检查获取到的 ~cj 是否需要更新, 更新条件是 r1 > r2, 即垂直方向距离过大
+	if (r1 > r2)
+		% fix cj_res(i) 
+		cj1_res(i) = cj1_res(i) + ... 
+		    (r1 -  sign(cj1_res(i)) .* r2)./ sqrt(1 - sum(alpha_1.* alpha_2, 2).^2);
+	end
+end
+clear cj_interp r1 r2 
+
+Pf1 = mean(normcdf(-cj1_res));
+
+
+%% %%%%%%%%%%%%%%%%%%%% xp2 sampling %%%%%%%%%%%%%%%%%%%%%% 
+xp2 = lhsnorm(mu_, sigma_, num_LS);
+xp2_tau = xp2 - sum(xp2.* alpha_2, 2) .* alpha_2;
+xp2_r = xp2 - xp2_tau;
+coef_alpha2 = sqrt(sum(xp2_r.^2, 2)) .* sign(sum(xp2_r .* alpha_2, 2));
+
+cj2_res = zeros(num_LS, 1);
+xj2_res = zeros(num_LS, n);
+for i = 1:num_LS
+	yp_interp2 = zeros(1, m); cj_interp = coef_alpha2(i,:).* coef_interp;
+	for j = 1:m
+		xp_temp = xp2_tau(i,:) + cj_interp(j) .* alpha_2;
+		yp_interp2(j) = g2(xp_temp); 
+	end
+	p = polyfit(yp_interp2, cj_interp, 2);
+	cj2_res(i) = p(3);
+    %% 注意:求解的是 xj2_res的距离， 不是样本点和两个部分的距离
+	xj2_res(i,:) = cj2_res(i) .* alpha_2 + xp2_tau(i,:);
+	r1 = len(xj2_res(i,:) - sum(xj2_res(i,:) .* alpha_1, 2) .* alpha_1);
+	r2 = len(xj2_res(i,:) - sum(xj2_res(i,:) .* alpha_2, 2) .* alpha_2);
+	
+	clear xp_temp p cj_interp
+	% 检查更新 ~cj 
+	if (r1 < r2)   %% 注意是长度比较
+		cj2_res(i) = cj2_res(i) + ...
+			(r2 - sign(cj2_res(i)) .* r1)./ sqrt(1 - sum(alpha_1.* alpha_2, 2).^2);
+	end
+end
+clear cj_interp 
+Pf2 = mean(normcdf(-cj2_res));
+
+
+Pf = Pf1 + Pf2;  % 求解系统的失效概率
+
+% Pf: 5.268000000000000e-04
+% sqrt(sum(xp1_tau.^2, 2));
+
+%% @note: 说明:对于很多失效模式的情况, 则往往我们可以先分别求出到每个失效模式下的tau的距离
+% 然后**选取距离其中最短的一个向量**, 投影到两个部分的交界面上来计算相应的c值; 这样就可以一个失效模式求出一组c
+% 并且很容易封装
+
+function res = len(x)
+    res = sqrt(sum(x.* x, 2));
+end
